@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard de soporte · Operaciones</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F4F5F8; --surface:#FFFFFF; --ink:#151922; --ink-2:#59616F; --ink-3:#8B92A0;
+    --line:#E6E8EC; --navy:#22305C; --navy-tint:#ECEFF7;
+    --amber:#E39A00; --amber-ink:#8A5600; --amber-bg:#FBF0D9;
+    --red:#C63C36; --red-ink:#9A2C27; --red-bg:#FBE9E7;
+    --teal:#1E8E6E; --teal-ink:#146552; --teal-bg:#E3F2ED;
+    --radius:14px; --maxw:1060px;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif; font-size:15px; line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:40px 24px 64px}
+  .mono{font-family:'IBM Plex Mono',monospace}
+  h1,h2,h3{font-family:'Space Grotesk',sans-serif; font-weight:500; color:var(--ink); margin:0}
+  .num{font-family:'Space Grotesk',sans-serif; font-variant-numeric:tabular-nums; font-weight:500}
+
+  /* header */
+  .head{margin-bottom:34px}
+  .eyebrow{font-family:'IBM Plex Mono',monospace; font-size:11.5px; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--navy); font-weight:500}
+  .head h1{font-size:30px; letter-spacing:-.01em; margin:8px 0 4px}
+  .head .period{color:var(--ink-3); font-size:13.5px}
+  .summary{margin-top:20px; padding:18px 20px; background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--radius); border-left:3px solid var(--navy)}
+  .summary p{margin:0; color:var(--ink-2); font-size:15px}
+  .summary strong{color:var(--ink); font-weight:500}
+  .flow{display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:16px;
+    font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--ink-3)}
+  .flow span{white-space:nowrap}
+  .flow i{color:#C3C7D0; font-style:normal}
+
+  /* sections */
+  section{margin-top:26px}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:26px 28px}
+  .q-eyebrow{display:flex; align-items:baseline; gap:12px; margin-bottom:6px}
+  .q-eyebrow .n{font-family:'Space Grotesk',sans-serif; font-weight:600; font-size:13px; color:var(--navy)}
+  .q-eyebrow .lbl{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.12em;
+    text-transform:uppercase; color:var(--ink-3)}
+  .card h2{font-size:21px; letter-spacing:-.01em; margin-bottom:14px}
+  .insight{color:var(--ink-2); font-size:14.5px; margin:16px 0 0}
+  .insight b{color:var(--ink); font-weight:500}
+
+  /* kpis */
+  .kpis{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:22px}
+  .kpi{background:#FAFBFC; border:1px solid var(--line); border-radius:12px; padding:16px 18px}
+  .kpi .k-label{font-size:12.5px; color:var(--ink-2); margin-bottom:6px}
+  .kpi .k-val{font-size:34px; line-height:1; letter-spacing:-.02em}
+  .kpi.watch{background:var(--amber-bg); border-color:#F0DCA9}
+  .kpi.watch .k-label,.kpi.watch .k-val{color:var(--amber-ink)}
+
+  /* legends */
+  .legend{display:flex; flex-wrap:wrap; gap:16px; margin-bottom:12px; font-size:12.5px; color:var(--ink-2)}
+  .legend span{display:flex; align-items:center; gap:6px}
+  .dot{width:10px; height:10px; border-radius:3px; display:inline-block}
+
+  .chartbox{position:relative; width:100%}
+
+  /* q2 ministats */
+  .split{display:grid; grid-template-columns:1.3fr 1fr; gap:22px; align-items:start}
+  .ministat{border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:12px}
+  .ministat .ms-top{font-size:12.5px; color:var(--ink-3); margin-bottom:8px}
+  .ms-row{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin:4px 0}
+  .ms-row .l{font-size:13.5px; color:var(--ink-2)}
+  .ms-row .v{font-size:19px}
+  .ms-row .v.bad{color:var(--red)} .ms-row .v.ok{color:var(--teal)}
+  .ms-note{font-size:12.5px; color:var(--ink-3); margin-top:6px}
+
+  /* q3 bars */
+  .clientlist{margin-top:4px}
+  .crow{display:grid; grid-template-columns:120px 1fr auto; align-items:center; gap:14px; padding:9px 0;
+    border-bottom:1px solid var(--line)}
+  .crow:last-child{border-bottom:none}
+  .cname{font-size:14px; color:var(--ink); font-weight:500}
+  .cbar-track{position:relative; height:22px; background:#F1F2F5; border-radius:6px; overflow:hidden}
+  .cbar-fill{position:absolute; left:0; top:0; height:100%; border-radius:6px}
+  .cbar-count{position:absolute; right:8px; top:50%; transform:translateY(-50%);
+    font-family:'Space Grotesk',sans-serif; font-size:12px; font-weight:500; color:var(--ink-2)}
+  .chip{font-family:'Space Grotesk',sans-serif; font-size:13px; font-weight:500; padding:3px 9px;
+    border-radius:20px; white-space:nowrap; min-width:76px; text-align:center}
+  .chip.hi{background:var(--teal-bg); color:var(--teal-ink)}
+  .chip.mid{background:var(--amber-bg); color:var(--amber-ink)}
+  .chip.lo{background:var(--red-bg); color:var(--red-ink)}
+  .satlegend{font-size:12px; color:var(--ink-3); margin-top:12px}
+
+  /* q5 alert */
+  .alert{border:1px solid #F0C9C4; border-left:4px solid var(--red); background:#FEFAF9}
+  .alert .q-eyebrow .n,.alert .q-eyebrow .lbl{color:var(--red-ink)}
+  .alert h2{color:var(--ink)}
+  .diag{color:var(--ink-2); font-size:14.5px; margin:0 0 18px}
+  .diag b{color:var(--ink); font-weight:500}
+  .actions{list-style:none; padding:0; margin:0 0 22px; counter-reset:a}
+  .actions li{counter-increment:a; position:relative; padding:6px 0 6px 34px; font-size:14.5px; color:var(--ink)}
+  .actions li::before{content:counter(a); position:absolute; left:0; top:6px; width:22px; height:22px;
+    background:var(--navy); color:#fff; border-radius:50%; font-family:'Space Grotesk',sans-serif;
+    font-size:12px; font-weight:500; display:flex; align-items:center; justify-content:center}
+  table{width:100%; border-collapse:collapse; font-size:13px}
+  thead th{text-align:left; font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--ink-3); font-weight:500; padding:0 10px 8px; border-bottom:1px solid var(--line)}
+  tbody td{padding:9px 10px; border-bottom:1px solid var(--line); color:var(--ink-2); vertical-align:middle}
+  tbody tr:last-child td{border-bottom:none}
+  td.tid{font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink); font-weight:500}
+  td.days{font-family:'Space Grotesk',sans-serif; font-weight:500; color:var(--ink)}
+  tr.top{background:var(--red-bg)}
+  tr.top td{color:var(--red-ink)} tr.top td.tid{color:var(--red-ink)}
+  .tag{display:inline-block; font-size:10.5px; padding:2px 7px; border-radius:5px; margin-left:6px;
+    background:var(--amber-bg); color:var(--amber-ink); font-family:'IBM Plex Mono',monospace; letter-spacing:.03em}
+  .st{display:inline-block; font-size:11.5px; padding:2px 9px; border-radius:20px; background:#F1F2F5; color:var(--ink-2)}
+
+  /* footer */
+  .foot{margin-top:34px; padding-top:22px; border-top:1px solid var(--line); color:var(--ink-3); font-size:12.5px}
+  .foot h3{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--ink-2); margin-bottom:10px; font-weight:500}
+  .foot ul{margin:0; padding-left:18px} .foot li{margin:4px 0}
+  .foot .built{margin-top:16px; color:var(--ink-3)}
+
+  @media (max-width:720px){
+    .wrap{padding:28px 16px 48px}
+    .kpis{grid-template-columns:1fr} .split{grid-template-columns:1fr}
+    .crow{grid-template-columns:88px 1fr auto; gap:10px}
+    .head h1{font-size:25px}
+    .card{padding:22px 18px}
+    table{font-size:12px}
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .card,.summary{opacity:0; transform:translateY(8px); animation:rise .5s ease forwards}
+    section:nth-child(2) .card{animation-delay:.05s} section:nth-child(3) .card{animation-delay:.1s}
+    section:nth-child(4) .card{animation-delay:.15s} section:nth-child(5) .card{animation-delay:.2s}
+    @keyframes rise{to{opacity:1; transform:none}}
+  }
+  a:focus-visible,button:focus-visible{outline:2px solid var(--navy); outline-offset:2px}
+</style>
+</head>
+<body>
+<main class="wrap">
+
+  <header class="head">
+    <div class="eyebrow">Invera · Equipo de Operaciones</div>
+    <h1>Dashboard de soporte</h1>
+    <div class="period mono">60 tickets · abril–junio 2026 · corte al 12-jun</div>
+    <div class="summary">
+      <p><strong>El 88% de los tickets se resuelve bien.</strong> El problema está concentrado en un solo lugar: los <strong>bugs de prioridad alta</strong> tardan ~3× más en cerrar, escalan en un 80% y hunden la satisfacción. El backlog abierto —7 tickets, todos bugs Alta— viene creciendo desde el <strong>20 de mayo</strong>, y 5 de esos 7 son errores de conciliación o mapeo que apuntan a una probable regresión reciente.</p>
+      <div class="flow">
+        <span>Se recibe</span><i>→</i><span>Se categoriza</span><i>→</i><span>Se escala / resuelve</span><i>→</i><span>Se cierra</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Q1 -->
+  <section>
+    <div class="card">
+      <div class="q-eyebrow"><span class="n">01</span><span class="lbl">Volumen y estado</span></div>
+      <h2>¿Cuántos tickets hay y en qué estado están?</h2>
+      <div class="kpis">
+        <div class="kpi"><div class="k-label">Total tickets</div><div class="k-val num">60</div></div>
+        <div class="kpi"><div class="k-label">Resueltos</div><div class="k-val num">88%</div></div>
+        <div class="kpi watch"><div class="k-label">Sin cerrar</div><div class="k-val num">7</div></div>
+      </div>
+      <div class="legend">
+        <span><i class="dot" style="background:#9AA0AC"></i>Cerrado</span>
+        <span><i class="dot" style="background:#E39A00"></i>Sin cerrar (en progreso · escalado · abierto)</span>
+      </div>
+      <div class="chartbox" style="height:210px"><canvas id="c1" role="img" aria-label="Barras de tickets por estado: Cerrado 53, En progreso 3, Escalado 2, Abierto 2.">Cerrado 53, En progreso 3, Escalado 2, Abierto 2.</canvas></div>
+      <p class="insight">El sistema cierra bien. El número a vigilar es <b>7</b>: el backlog abierto — y, como se ve abajo, no son tickets cualquiera.</p>
+    </div>
+  </section>
+
+  <!-- Q2 -->
+  <section>
+    <div class="card">
+      <div class="q-eyebrow"><span class="n">02</span><span class="lbl">Cuellos de botella</span></div>
+      <h2>¿Dónde se traba el flujo?</h2>
+      <div class="split">
+        <div>
+          <div class="legend"><span class="mono" style="color:var(--ink-3)">Tiempo de resolución promedio, en horas, por categoría</span></div>
+          <div class="chartbox" style="height:200px"><canvas id="c2" role="img" aria-label="Barras de tiempo de resolución promedio por categoría: Accesos 14h, Consulta operativa 20h, Configuración 25h, Bug 68h.">Accesos 14h, Consulta operativa 20h, Configuración 25h, Bug 68h.</canvas></div>
+        </div>
+        <div>
+          <div class="ministat">
+            <div class="ms-top">La primera respuesta NO es el cuello</div>
+            <div class="ms-row"><span class="l">Primera respuesta (mediana)</span><span class="v ok">4 h</span></div>
+            <div class="ms-row"><span class="l">En bugs y prioridad Alta</span><span class="v ok">~4 h</span></div>
+            <div class="ms-note">Rápida donde importa. Aun las consultas de baja prioridad (~8 h) quedan lejos del tiempo de resolución.</div>
+          </div>
+          <div class="ministat">
+            <div class="ms-top">El cuello real: el escalado</div>
+            <div class="ms-row"><span class="l">Bug que el equipo resuelve solo</span><span class="v ok">38 h</span></div>
+            <div class="ms-row"><span class="l">Bug que escala a otro equipo</span><span class="v bad">76 h</span></div>
+            <div class="ms-note">Escalar duplica el tiempo de ciclo. El 80% de los bugs escala.</div>
+          </div>
+        </div>
+      </div>
+      <p class="insight">El cuello no es responder, es <b>resolver</b>, y está casi todo en los <b>bugs</b>. Curiosidad reveladora: los tickets Alta tardan más que los Media/Baja en cerrar — no porque se los desatienda (se responden más rápido), sino porque "Alta" es casi sinónimo de "Bug".</p>
+    </div>
+  </section>
+
+  <!-- Q3 -->
+  <section>
+    <div class="card">
+      <div class="q-eyebrow"><span class="n">03</span><span class="lbl">Clientes y conformidad</span></div>
+      <h2>¿Quién concentra la carga y qué tan conforme está?</h2>
+      <div class="clientlist" id="clients"></div>
+      <div class="satlegend">
+        <span class="chip lo" style="min-width:auto; display:inline-block">satisfacción</span> se muestra a la derecha (1–5).
+        La barra es la cantidad de tickets. <b style="color:var(--ink)">La carga está repartida casi pareja</b> — nadie la concentra.
+      </div>
+      <p class="insight">La carga no es el diferenciador: los 5 clientes están entre 11 y 13 tickets. Lo que varía es la <b>satisfacción</b>. <b>Quinto</b> es la alerta: no solo recibe más bugs (73% de sus tickets), sino que puntúa peor incluso comparando bug contra bug. Es un riesgo de relación a cuidar.</p>
+    </div>
+  </section>
+
+  <!-- Q4 -->
+  <section>
+    <div class="card">
+      <div class="q-eyebrow"><span class="n">04</span><span class="lbl">Tendencia</span></div>
+      <h2>¿El volumen crece, baja o está estable?</h2>
+      <div class="legend">
+        <span><i class="dot" style="background:#C2C6CE"></i>Otros tickets</span>
+        <span><i class="dot" style="background:#E39A00"></i>Bugs</span>
+        <span class="mono" style="color:var(--ink-3)">· por semana de apertura</span>
+      </div>
+      <div class="chartbox" style="height:250px"><canvas id="c4" role="img" aria-label="Barras apiladas semanales de tickets, separando bugs del resto. El total se mantiene estable pero la proporción de bugs crece hacia junio.">Volumen semanal estable; la proporción de bugs sube de 42% en abril a 80% en junio.</canvas></div>
+      <div class="ms-row" style="margin-top:14px; border-top:1px solid var(--line); padding-top:14px">
+        <span class="l" style="font-size:13.5px; color:var(--ink-2)">Proporción de tickets que son bugs, por mes</span>
+        <span class="num" style="font-size:15px"><span style="color:var(--ink-3)">abr</span> 42% &nbsp;·&nbsp; <span style="color:var(--ink-3)">may</span> 46% &nbsp;·&nbsp; <span style="color:var(--amber-ink)">jun 80%</span></span>
+      </div>
+      <p class="insight">El volumen es <b>estable</b> (~0,8 tickets/día en los tres meses), no cae — junio se ve chico solo porque los datos llegan hasta el día 12. Lo que sí cambia es la <b>composición</b>: la intake se está "abugando", y esos bugs son justo los que no cierran.</p>
+    </div>
+  </section>
+
+  <!-- Q5 -->
+  <section>
+    <div class="card alert">
+      <div class="q-eyebrow"><span class="n">05</span><span class="lbl">Conclusión · qué atender mañana</span></div>
+      <h2>La alerta</h2>
+      <p class="diag">Lo primero del día son los <b>7 tickets abiertos, todos bugs de prioridad Alta</b>. El más urgente es <b>TKT-042</b> (Quinto, 23 días, estancado en progreso). Pero la lectura de fondo no es "hay backlog": <b>5 de estos 7 son errores de conciliación de saldos o mapeo de cuentas</b> — dos tipos de bug que no existían antes del 20 de mayo y que desde entonces golpean a los 5 clientes a la vez. Huele a una <b>regresión de plataforma reciente</b>, no a casos aislados. En un producto de infraestructura financiera, eso es prioridad máxima.</p>
+      <ol class="actions">
+        <li>Desbloquear los 3 más críticos: <b>TKT-042</b> (23 días) y los dos escalados, <b>TKT-051</b> y <b>TKT-055</b>.</li>
+        <li>Llevar a producto/ingeniería la hipótesis de <b>regresión en conciliación/mapeo desde ~20-may</b> — es transversal a todos los clientes.</li>
+        <li>Empezar a medir el <b>tiempo de vuelta del escalado</b>: es el cuello de botella real y hoy no se mide.</li>
+      </ol>
+      <table>
+        <thead><tr><th>Ticket</th><th>Cliente</th><th>Tipo de bug</th><th>Estado</th><th>Asignado</th><th>Días</th></tr></thead>
+        <tbody>
+          <tr class="top"><td class="tid">TKT-042</td><td>Quinto</td><td>Mapeo de cuentas <span class="tag">regresión?</span></td><td><span class="st">En progreso</span></td><td>Martín</td><td class="days">23</td></tr>
+          <tr><td class="tid">TKT-051</td><td>Balanz</td><td>Conciliación de saldos <span class="tag">regresión?</span></td><td><span class="st">Escalado</span></td><td>Lucía</td><td class="days">10</td></tr>
+          <tr><td class="tid">TKT-053</td><td>PPI</td><td>Conciliación de saldos <span class="tag">regresión?</span></td><td><span class="st">En progreso</span></td><td>Lucía</td><td class="days">8</td></tr>
+          <tr><td class="tid">TKT-055</td><td>IOL</td><td>Conciliación de saldos <span class="tag">regresión?</span></td><td><span class="st">Escalado</span></td><td>Lucía</td><td class="days">6</td></tr>
+          <tr><td class="tid">TKT-057</td><td>Quinto</td><td>Mapeo de cuentas <span class="tag">regresión?</span></td><td><span class="st">En progreso</span></td><td>Lucía</td><td class="days">3</td></tr>
+          <tr><td class="tid">TKT-059</td><td>Cocos</td><td>Bug de interfaz</td><td><span class="st">Abierto</span></td><td>Lucía</td><td class="days">1</td></tr>
+          <tr><td class="tid">TKT-060</td><td>IOL</td><td>Validación de datos</td><td><span class="st">Abierto</span></td><td>Martín</td><td class="days">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <h3>Supuestos y aclaraciones</h3>
+    <ul>
+      <li><b>Fecha de corte: 12-jun-2026</b> (último evento del dataset), usada para medir la antigüedad de los tickets abiertos.</li>
+      <li><b>Junio es un mes parcial</b> (datos hasta el día 12): el volumen es estable, no decreciente — al normalizar por día da ~0,8 tickets/día en los tres meses.</li>
+      <li><b>La satisfacción (3,77 global) es optimista:</b> solo existe en tickets cerrados. Los 7 abiertos —los bugs que peor puntuarían— no entran en el promedio, así que la conformidad real es algo peor.</li>
+      <li>"Escalado" (estado actual: 2 tickets) ≠ "requirió escalado" (histórico: 24 tickets). Son métricas distintas.</li>
+      <li>La <b>regresión de plataforma</b> es una hipótesis fuerte pero no demostrable con este dataset: es una pregunta a producto/ingeniería, no un hecho confirmado.</li>
+    </ul>
+    <div class="built mono">Construido con IA (Claude) sobre el dataset de 60 tickets · challenge Analista de Operaciones</div>
+  </footer>
+
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+(function(){
+  var GRAY='#9AA0AC', GRAY2='#C2C6CE', AMBER='#E39A00', NAVY='#33427A', TEAL='#1E8E6E',
+      GRID='#E6E8EC', AXIS='#8B92A0', INK='#59616F';
+  Chart.defaults.font.family="'Inter',sans-serif";
+  Chart.defaults.font.size=12;
+
+  // Q1 - estado
+  new Chart(document.getElementById('c1'),{
+    type:'bar',
+    data:{labels:['Cerrado','En progreso','Escalado','Abierto'],
+      datasets:[{data:[53,3,2,2],backgroundColor:[GRAY,AMBER,AMBER,AMBER],borderRadius:5,borderSkipped:false,barThickness:26}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return c.parsed.x+' tickets';}}}},
+      scales:{x:{beginAtZero:true,grid:{color:GRID},border:{display:false},ticks:{color:AXIS}},
+        y:{grid:{display:false},border:{display:false},ticks:{color:INK,font:{size:13}}}}}
+  });
+
+  // Q2 - resolucion por categoria
+  new Chart(document.getElementById('c2'),{
+    type:'bar',
+    data:{labels:['Accesos','Consulta operativa','Configuración','Bug'],
+      datasets:[{data:[13.9,19.9,25.0,68.2],backgroundColor:[GRAY,GRAY,GRAY,AMBER],borderRadius:5,borderSkipped:false,barThickness:22}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:function(c){return Math.round(c.parsed.x)+' h promedio';}}}},
+      scales:{x:{beginAtZero:true,grid:{color:GRID},border:{display:false},ticks:{color:AXIS,callback:function(v){return v+'h';}}},
+        y:{grid:{display:false},border:{display:false},ticks:{color:INK,font:{size:12.5}}}}}
+  });
+
+  // Q4 - semanal apilado
+  var wk=['30-mar','6-abr','13-abr','20-abr','27-abr','4-may','11-may','18-may','25-may','1-jun','8-jun'];
+  var otros=[4,4,3,2,4,3,4,2,2,1,1];
+  var bugs =[2,2,3,3,1,3,2,3,3,5,3];
+  new Chart(document.getElementById('c4'),{
+    type:'bar',
+    data:{labels:wk,datasets:[
+      {label:'Otros',data:otros,backgroundColor:GRAY2,stack:'s',borderRadius:{topLeft:0,topRight:0},barPercentage:.72},
+      {label:'Bugs',data:bugs,backgroundColor:AMBER,stack:'s',borderRadius:{topLeft:4,topRight:4},barPercentage:.72}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{mode:'index',callbacks:{footer:function(items){var t=0;items.forEach(function(i){t+=i.parsed.y;});return 'Total: '+t;}}}},
+      scales:{x:{stacked:true,grid:{display:false},border:{display:false},ticks:{color:AXIS,autoSkip:false,maxRotation:0,font:{size:10.5}}},
+        y:{stacked:true,beginAtZero:true,grid:{color:GRID},border:{display:false},ticks:{color:AXIS,stepSize:2}}}}
+  });
+
+  // Q3 - lista clientes (HTML)
+  var clients=[
+    {n:'Balanz',t:13,s:4.17},{n:'Cocos',t:12,s:3.91},{n:'IOL',t:12,s:3.60},
+    {n:'PPI',t:12,s:4.36},{n:'Quinto',t:11,s:2.56}
+  ];
+  var maxT=13;
+  function satClass(s){return s>=3.8?'hi':(s>=3?'mid':'lo');}
+  function satColor(s){return s>=3.8?'#1E8E6E':(s>=3?'#E39A00':'#C63C36');}
+  var html='';
+  clients.forEach(function(c){
+    var w=Math.round(c.t/maxT*100);
+    html+='<div class="crow">'+
+      '<div class="cname">'+c.n+'</div>'+
+      '<div class="cbar-track"><div class="cbar-fill" style="width:'+w+'%;background:'+satColor(c.s)+'"></div><span class="cbar-count">'+c.t+'</span></div>'+
+      '<div class="chip '+satClass(c.s)+'">★ '+c.s.toFixed(2)+'</div>'+
+    '</div>';
+  });
+  document.getElementById('clients').innerHTML=html;
+})();
+</script>
+</body>
+</html>
