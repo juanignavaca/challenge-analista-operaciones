@@ -143,6 +143,30 @@
     @keyframes rise{to{opacity:1; transform:none}}
   }
   a:focus-visible,button:focus-visible{outline:2px solid var(--navy); outline-offset:2px}
+
+  /* alert monitor */
+  .alertpanel{border-top:3px solid var(--navy)}
+  .alert-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:8px}
+  .alert-count{font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink-2); white-space:nowrap}
+  .alert-item{display:flex; gap:14px; padding:13px 0; border-bottom:1px solid var(--line)}
+  .alert-item:last-child{border-bottom:none}
+  .alert-badge{flex:0 0 auto; font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.06em;
+    text-transform:uppercase; padding:3px 8px; border-radius:6px; height:fit-content; margin-top:2px; min-width:64px; text-align:center}
+  .badge-crit{background:var(--red-bg); color:var(--red-ink)}
+  .badge-warn{background:var(--amber-bg); color:var(--amber-ink)}
+  .badge-info{background:var(--navy-tint); color:var(--navy)}
+  .a-title{font-size:14.5px; color:var(--ink); font-weight:500; margin:0 0 3px}
+  .a-detail{font-size:13.5px; color:var(--ink-2); margin:0; line-height:1.5}
+  .alert-how{margin-top:16px}
+  .alert-how summary{cursor:pointer; color:var(--navy); font-family:'IBM Plex Mono',monospace;
+    font-size:11px; letter-spacing:.08em; text-transform:uppercase; list-style:none}
+  .alert-how summary::-webkit-details-marker{display:none}
+  .alert-how summary::before{content:'+ '; font-weight:600}
+  .alert-how[open] summary::before{content:'– '}
+  .alert-how .how-body{color:var(--ink-2); font-size:13px; margin:12px 0 0; padding-left:2px}
+  .alert-how .how-body li{margin:5px 0}
+  .alert-prod{margin-top:16px; padding-top:14px; border-top:1px dashed var(--line);
+    font-size:12.5px; color:var(--ink-3); line-height:1.55}
 </style>
 </head>
 <body>
@@ -159,6 +183,27 @@
       </div>
     </div>
   </header>
+
+  <!-- Monitor de alertas (bonus) -->
+  <section>
+    <div class="card alertpanel">
+      <div class="q-eyebrow"><span class="lbl">Monitor automático · bonus</span></div>
+      <div class="alert-head">
+        <h2>Alertas al 12-jun</h2>
+        <span class="alert-count" id="alertcount"></span>
+      </div>
+      <div class="alert-list" id="alertlist"></div>
+      <details class="alert-how">
+        <summary>Cómo funciona</summary>
+        <ul class="how-body">
+          <li>Los 60 tickets están embebidos en la página. Al abrirla, un motor de reglas los recorre y <b>genera estas alertas solo</b> — no están escritas a mano.</li>
+          <li>Cada alerta es una regla sobre los datos: tickets Alta que superan un umbral de días, tipos de bug nuevos que aparecen en varios clientes, satisfacción por debajo de un piso, saltos en la composición del intake, y la tasa de escalado.</li>
+          <li>Cambiar un umbral cambia las alertas: la lógica es configurable.</li>
+        </ul>
+      </details>
+      <p class="alert-prod">En producción, estas mismas reglas correrían cada mañana sobre los datos vivos (Google Sheets) y dispararían un digest al líder vía Make o Zapier → Slack o mail. Acá se ejecutan sobre el dataset fijo del challenge, que es la forma de demostrar la lógica sin montar la infraestructura.</p>
+    </div>
+  </section>
 
   <!-- Q1 -->
   <section>
@@ -246,7 +291,7 @@
     <div class="card alert">
       <div class="q-eyebrow"><span class="n">05</span><span class="lbl">Conclusión · qué atender mañana</span></div>
       <h2>La alerta</h2>
-      <p class="diag">Lo primero del día son los <b>7 tickets abiertos, todos bugs de prioridad Alta</b>. El más urgente es <b>TKT-042</b> (Quinto, 23 días, estancado en progreso). Pero la lectura de fondo no es "hay backlog": <b>5 de estos 7 son errores de conciliación de saldos o mapeo de cuentas</b> — dos tipos de bug que no existían antes del 20 de mayo y que desde entonces golpean a los 5 clientes a la vez. Huele a una <b>regresión de plataforma reciente</b>, no a casos aislados. En un producto de infraestructura financiera, eso es prioridad máxima.</p>
+      <p class="diag">Lo primero del día son los <b>7 tickets abiertos, todos bugs de prioridad Alta</b>. El más urgente es <b>TKT-042</b> (Quinto, 23 días, estancado en progreso). Pero la lectura de fondo no es "hay backlog": <b>5 de estos 7 son errores de conciliación de saldos o mapeo de cuentas</b>, dos tipos de bug que no existían antes del 20 de mayo. El de <b>conciliación</b> ya apareció en 4 clientes distintos (Balanz, Cocos, IOL y PPI) — que sea transversal apunta a la plataforma compartida —, mientras que el de <b>mapeo</b> se concentra en Quinto. Juntos tocan a los 5 clientes, y el patrón huele a una <b>regresión reciente</b>, no a casos aislados. En un producto de infraestructura financiera, eso es prioridad máxima.</p>
       <ol class="actions">
         <li>Desbloquear los 3 más críticos: <b>TKT-042</b> (23 días) y los dos escalados, <b>TKT-051</b> y <b>TKT-055</b>.</li>
         <li>Llevar a producto/ingeniería la hipótesis de <b>regresión en conciliación/mapeo desde ~20-may</b> — es transversal a todos los clientes.</li>
@@ -347,5 +392,113 @@
   document.getElementById('clients').innerHTML=html;
 })();
 </script>
+<script>
+/* Motor de alertas — recorre los 60 tickets embebidos y genera las alertas por reglas.
+   Los umbrales están al principio de cada regla: cambiarlos cambia las alertas. */
+(function(){
+  const TICKETS = [{"id": "TKT-001", "cli": "Balanz Capital", "cat": "Accesos", "tb": null, "pri": "Alta", "est": "Cerrado", "asg": "Lucía", "fa": "2026-04-01", "fc": "2026-04-01", "tpr": 1, "tr": 3.0, "esc": "No", "sat": 5.0}, {"id": "TKT-002", "cli": "PPI", "cat": "Configuración", "tb": null, "pri": "Media", "est": "Cerrado", "asg": "Martín", "fa": "2026-04-02", "fc": "2026-04-03", "tpr": 4, "tr": 18.0, "esc": "No", "sat": 4.0}, {"id": "TKT-003", "cli": "IOL Invertironline", "cat": "Bug", "tb": "Timeout de conexión", "pri": "Alta", "est": "Cerrado", "asg": "Lucía", "fa": "2026-04-02", "fc": "2026-04-07", "tpr": 2, "tr": 120.0, "esc": "Sí", "sat": 3.0}, {"id": "TKT-004", "cli": "Cocos Capital", "cat": "Consulta operativa", "tb": null, "pri": "Baja", "est": "Cerrado", "asg": "Martín", "fa": "2026-04-03", "fc": "2026-04-04", "tpr": 8, "tr": 22.0, "esc": "No", "sat": 5.0}, {"id": "TKT-005", "cli": "Balanz Capital", "cat": "Accesos", "tb": null, "pri": "Media", "est": "Cerrado", "asg": "Lucía", "fa": "2026-04-04", "fc": "2026-04-05", "tpr": 3, "tr": 14.0, "esc": "No", "sat": 4.0}, {"id": "TKT-006", "cli": "Quinto", "cat": "Bug", "tb": "Error de validación de datos", "pri": "Alta", "est": "Cerrado", "asg": "Martín", "fa": "2026-04-05", "fc": "2026-04-10", "tpr": 6, "tr": 112.0, "esc": "Sí", "sat": 2.0}, {"id": "TKT-007", "cli": "PPI", "cat": "Consulta operativa", "tb": null, "pri": "Baja", "est": "Cerrado", "asg": "Lucía", "fa": "2026-04-07", "fc": "2026-04-08", "tpr": 5, "tr": 20.0, "esc": "No", "sat": 5.0}, {"id": "TKT-008", "cli": "Cocos Capital", "cat": "Accesos", "tb": null, "pri": "Alta", "est": "Cerrado", "asg": "Martín", "fa": "2026-04-08", "fc": "2026-04-09", "tpr": 1, "tr": 9.0, "esc": "No", "sat": 5.0}, {"id": "TKT-009", "cli": "IOL Invertironline", "cat": "Bug", "tb": "Caída de servicio puntual", "pri": "Alta", "est": "Cerrado", "asg": "Lucía", "fa": "2026-04-09", "fc": "2026-04-14", "tpr": 3, "tr": 98.0, "esc": "Sí", "sat": 3.0}, {"id": "TKT-010", "cli": "Balanz Capital", "cat": "Bug", "tb": "Bug de interfaz", "pri": "Media", "est": "Cerrado", "asg": "Martín", "fa": "2026-04-10", "fc": "2026-04-11", "tpr": 4, "tr": 28.0, "esc": "No", "sat": 4.0}, {"id": "TKT-011", "cli": "Quinto", "cat": "Accesos", "tb": null, "pri": "Baja", "est": "Cerrado", "asg": "Lucía", "fa": "2026-04-11", "fc": "2026-04-12", "tpr": 7, "tr": 18.0, "esc": "No", "sat": 4.0}, {"id": "TKT-012", "cli": "PPI", "cat": "Configuración", "tb": null, "pri": "Media", "est": "Cerrado", "asg": "Martín", "fa": "2026-04-12", "fc": "2026-04-13", "tpr": 5, "tr": 22.0, "esc": "No", "sat": 3.0}, {"id": "TKT-013", "cli": "Cocos Capital", "cat": "Bug", "tb": "Timeout de conexión", "pri": "Alta", "est": "Cerrado", "asg": "Lucía", "fa": "2026-04-13", "fc": "2026-04-14", "tpr": 2, "tr": 36.0, "esc": "Sí", "sat": 4.0}, {"id": "TKT-014", "cli": "Balanz Capital", "cat": "Bug", "tb": "Error de validación de datos", "pri": "Media", "est": "Cerrado", "asg": "Martín", "fa": "2026-04-14", "fc": "2026-04-16", "tpr": 6, "tr": 44.0, "esc": "No", "sat": 4.0}, {"id": "TKT-015", "cli": "IOL Invertironline", "cat": "Consulta operativa", "tb": null, "pri": "Baja", "est": "Cerrado", "asg": "Lucía", "fa": "2026-04-15", "fc": "2026-04-16", "tpr": 9, "tr": 19.0, "esc": "No", "sat": 5.0}, {"id": "TKT-016", "cli": "Quinto", "cat": "Bug", "tb": "Caída de servicio puntual", "pri": "Alta", "est": "Cerrado", "asg": "Martín", "fa": "2026-04-16", "fc": "2026-04-21", "tpr": 3, "tr": 88.0, "esc": "Sí", "sat": 2.0}, {"id": "TKT-017", "cli": "PPI", "cat": "Accesos", "tb": null, "pri": "Media", "est": "Cerrado", "asg": "Lucía", "fa": "2026-04-17", "fc": "2026-04-18", "tpr": 4, "tr": 16.0, "esc": "No", "sat": 5.0}, {"id": "TKT-018", "cli": "Balanz Capital", "cat": "Consulta operativa", "tb": null, "pri": "Baja", "est": "Cerrado", "asg": "Martín", "fa": "2026-04-18", "fc": "2026-04-19", "tpr": 6, "tr": 21.0, "esc": "No", "sat": 4.0}, {"id": "TKT-019", "cli": "Cocos Capital", "cat": "Bug", "tb": "Bug de interfaz", "pri": "Alta", "est": "Cerrado", "asg": "Lucía", "fa": "2026-04-21", "fc": "2026-04-23", "tpr": 5, "tr": 52.0, "esc": "Sí", "sat": 3.0}, {"id": "TKT-020", "cli": "IOL Invertironline", "cat": "Configuración", "tb": null, "pri": "Media", "est": "Cerrado", "asg": "Martín", "fa": "2026-04-22", "fc": "2026-04-23", "tpr": 4, "tr": 24.0, "esc": "No", "sat": 4.0}, {"id": "TKT-021", "cli": "Balanz Capital", "cat": "Accesos", "tb": null, "pri": "Baja", "est": "Cerrado", "asg": "Lucía", "fa": "2026-04-23", "fc": "2026-04-24", "tpr": 8, "tr": 17.0, "esc": "No", "sat": 5.0}, {"id": "TKT-022", "cli": "Quinto", "cat": "Bug", "tb": "Timeout de conexión", "pri": "Alta", "est": "Cerrado", "asg": "Martín", "fa": "2026-04-24", "fc": "2026-04-28", "tpr": 4, "tr": 78.0, "esc": "Sí", "sat": 2.0}, {"id": "TKT-023", "cli": "PPI", "cat": "Bug", "tb": "Error de validación de datos", "pri": "Media", "est": "Cerrado", "asg": "Lucía", "fa": "2026-04-25", "fc": "2026-04-26", "tpr": 3, "tr": 30.0, "esc": "No", "sat": 4.0}, {"id": "TKT-024", "cli": "Cocos Capital", "cat": "Consulta operativa", "tb": null, "pri": "Baja", "est": "Cerrado", "asg": "Martín", "fa": "2026-04-28", "fc": "2026-04-29", "tpr": 7, "tr": 20.0, "esc": "No", "sat": 5.0}, {"id": "TKT-025", "cli": "IOL Invertironline", "cat": "Bug", "tb": "Caída de servicio puntual", "pri": "Alta", "est": "Cerrado", "asg": "Lucía", "fa": "2026-04-29", "fc": "2026-05-02", "tpr": 2, "tr": 68.0, "esc": "Sí", "sat": 3.0}, {"id": "TKT-026", "cli": "Balanz Capital", "cat": "Configuración", "tb": null, "pri": "Media", "est": "Cerrado", "asg": "Martín", "fa": "2026-04-30", "fc": "2026-05-01", "tpr": 5, "tr": 26.0, "esc": "No", "sat": 4.0}, {"id": "TKT-027", "cli": "Quinto", "cat": "Accesos", "tb": null, "pri": "Baja", "est": "Cerrado", "asg": "Lucía", "fa": "2026-05-02", "fc": "2026-05-03", "tpr": 6, "tr": 14.0, "esc": "No", "sat": 4.0}, {"id": "TKT-028", "cli": "PPI", "cat": "Consulta operativa", "tb": null, "pri": "Baja", "est": "Cerrado", "asg": "Martín", "fa": "2026-05-03", "fc": "2026-05-04", "tpr": 8, "tr": 18.0, "esc": "No", "sat": 5.0}, {"id": "TKT-029", "cli": "Cocos Capital", "cat": "Bug", "tb": "Bug de interfaz", "pri": "Alta", "est": "Cerrado", "asg": "Lucía", "fa": "2026-05-05", "fc": "2026-05-07", "tpr": 2, "tr": 44.0, "esc": "No", "sat": 4.0}, {"id": "TKT-030", "cli": "IOL Invertironline", "cat": "Bug", "tb": "Timeout de conexión", "pri": "Alta", "est": "Cerrado", "asg": "Martín", "fa": "2026-05-06", "fc": "2026-05-08", "tpr": 4, "tr": 56.0, "esc": "Sí", "sat": 3.0}, {"id": "TKT-031", "cli": "Balanz Capital", "cat": "Accesos", "tb": null, "pri": "Media", "est": "Cerrado", "asg": "Lucía", "fa": "2026-05-07", "fc": "2026-05-08", "tpr": 3, "tr": 15.0, "esc": "No", "sat": 5.0}, {"id": "TKT-032", "cli": "Quinto", "cat": "Bug", "tb": "Error de validación de datos", "pri": "Alta", "est": "Cerrado", "asg": "Martín", "fa": "2026-05-08", "fc": "2026-05-13", "tpr": 3, "tr": 92.0, "esc": "Sí", "sat": 1.0}, {"id": "TKT-033", "cli": "PPI", "cat": "Configuración", "tb": null, "pri": "Baja", "est": "Cerrado", "asg": "Lucía", "fa": "2026-05-09", "fc": "2026-05-10", "tpr": 6, "tr": 22.0, "esc": "No", "sat": 4.0}, {"id": "TKT-034", "cli": "Cocos Capital", "cat": "Accesos", "tb": null, "pri": "Media", "est": "Cerrado", "asg": "Martín", "fa": "2026-05-10", "fc": "2026-05-11", "tpr": 4, "tr": 16.0, "esc": "No", "sat": 5.0}, {"id": "TKT-035", "cli": "IOL Invertironline", "cat": "Consulta operativa", "tb": null, "pri": "Baja", "est": "Cerrado", "asg": "Lucía", "fa": "2026-05-12", "fc": "2026-05-13", "tpr": 7, "tr": 19.0, "esc": "No", "sat": 4.0}, {"id": "TKT-036", "cli": "Balanz Capital", "cat": "Bug", "tb": "Caída de servicio puntual", "pri": "Alta", "est": "Cerrado", "asg": "Martín", "fa": "2026-05-13", "fc": "2026-05-16", "tpr": 2, "tr": 60.0, "esc": "Sí", "sat": 3.0}, {"id": "TKT-037", "cli": "Quinto", "cat": "Consulta operativa", "tb": null, "pri": "Baja", "est": "Cerrado", "asg": "Lucía", "fa": "2026-05-14", "fc": "2026-05-15", "tpr": 9, "tr": 21.0, "esc": "No", "sat": 4.0}, {"id": "TKT-038", "cli": "PPI", "cat": "Accesos", "tb": null, "pri": "Alta", "est": "Cerrado", "asg": "Martín", "fa": "2026-05-15", "fc": "2026-05-16", "tpr": 1, "tr": 10.0, "esc": "No", "sat": 5.0}, {"id": "TKT-039", "cli": "Cocos Capital", "cat": "Bug", "tb": "Bug de interfaz", "pri": "Alta", "est": "Cerrado", "asg": "Lucía", "fa": "2026-05-16", "fc": "2026-05-20", "tpr": 5, "tr": 82.0, "esc": "Sí", "sat": 2.0}, {"id": "TKT-040", "cli": "IOL Invertironline", "cat": "Configuración", "tb": null, "pri": "Media", "est": "Cerrado", "asg": "Martín", "fa": "2026-05-17", "fc": "2026-05-18", "tpr": 4, "tr": 25.0, "esc": "No", "sat": 4.0}, {"id": "TKT-041", "cli": "Balanz Capital", "cat": "Bug", "tb": "Timeout de conexión", "pri": "Media", "est": "Cerrado", "asg": "Lucía", "fa": "2026-05-19", "fc": "2026-05-21", "tpr": 6, "tr": 46.0, "esc": "No", "sat": 4.0}, {"id": "TKT-042", "cli": "Quinto", "cat": "Bug", "tb": "Error de mapeo de cuentas", "pri": "Alta", "est": "En progreso", "asg": "Martín", "fa": "2026-05-20", "fc": null, "tpr": 3, "tr": null, "esc": "Sí", "sat": null}, {"id": "TKT-043", "cli": "PPI", "cat": "Accesos", "tb": null, "pri": "Baja", "est": "Cerrado", "asg": "Lucía", "fa": "2026-05-21", "fc": "2026-05-22", "tpr": 8, "tr": 17.0, "esc": "No", "sat": 5.0}, {"id": "TKT-044", "cli": "Cocos Capital", "cat": "Bug", "tb": "Error de validación de datos", "pri": "Alta", "est": "Cerrado", "asg": "Martín", "fa": "2026-05-22", "fc": "2026-05-26", "tpr": 2, "tr": 72.0, "esc": "Sí", "sat": 3.0}, {"id": "TKT-045", "cli": "IOL Invertironline", "cat": "Consulta operativa", "tb": null, "pri": "Baja", "est": "Cerrado", "asg": "Lucía", "fa": "2026-05-23", "fc": "2026-05-24", "tpr": 10, "tr": 22.0, "esc": "No", "sat": 4.0}, {"id": "TKT-046", "cli": "Balanz Capital", "cat": "Configuración", "tb": null, "pri": "Media", "est": "Cerrado", "asg": "Martín", "fa": "2026-05-26", "fc": "2026-05-28", "tpr": 5, "tr": 38.0, "esc": "No", "sat": 4.0}, {"id": "TKT-047", "cli": "Quinto", "cat": "Bug", "tb": "Error de mapeo de cuentas", "pri": "Alta", "est": "Cerrado", "asg": "Lucía", "fa": "2026-05-27", "fc": "2026-05-30", "tpr": 2, "tr": 68.0, "esc": "Sí", "sat": 2.0}, {"id": "TKT-048", "cli": "PPI", "cat": "Bug", "tb": "Caída de servicio puntual", "pri": "Alta", "est": "Cerrado", "asg": "Martín", "fa": "2026-05-28", "fc": "2026-06-02", "tpr": 4, "tr": 96.0, "esc": "Sí", "sat": 3.0}, {"id": "TKT-049", "cli": "Cocos Capital", "cat": "Consulta operativa", "tb": null, "pri": "Baja", "est": "Cerrado", "asg": "Lucía", "fa": "2026-05-29", "fc": "2026-05-30", "tpr": 7, "tr": 18.0, "esc": "No", "sat": 5.0}, {"id": "TKT-050", "cli": "IOL Invertironline", "cat": "Bug", "tb": "Timeout de conexión", "pri": "Alta", "est": "Cerrado", "asg": "Martín", "fa": "2026-05-30", "fc": "2026-06-02", "tpr": 3, "tr": 58.0, "esc": "Sí", "sat": 3.0}, {"id": "TKT-051", "cli": "Balanz Capital", "cat": "Bug", "tb": "Error de conciliación de saldos", "pri": "Alta", "est": "Escalado", "asg": "Lucía", "fa": "2026-06-02", "fc": null, "tpr": 2, "tr": null, "esc": "Sí", "sat": null}, {"id": "TKT-052", "cli": "Quinto", "cat": "Bug", "tb": "Error de mapeo de cuentas", "pri": "Alta", "est": "Cerrado", "asg": "Martín", "fa": "2026-06-03", "fc": "2026-06-06", "tpr": 5, "tr": 74.0, "esc": "Sí", "sat": 2.0}, {"id": "TKT-053", "cli": "PPI", "cat": "Bug", "tb": "Error de conciliación de saldos", "pri": "Alta", "est": "En progreso", "asg": "Lucía", "fa": "2026-06-04", "fc": null, "tpr": 4, "tr": null, "esc": "Sí", "sat": null}, {"id": "TKT-054", "cli": "Cocos Capital", "cat": "Bug", "tb": "Error de conciliación de saldos", "pri": "Alta", "est": "Cerrado", "asg": "Martín", "fa": "2026-06-05", "fc": "2026-06-08", "tpr": 6, "tr": 66.0, "esc": "Sí", "sat": 2.0}, {"id": "TKT-055", "cli": "IOL Invertironline", "cat": "Bug", "tb": "Error de conciliación de saldos", "pri": "Alta", "est": "Escalado", "asg": "Lucía", "fa": "2026-06-06", "fc": null, "tpr": 3, "tr": null, "esc": "Sí", "sat": null}, {"id": "TKT-056", "cli": "Balanz Capital", "cat": "Consulta operativa", "tb": null, "pri": "Baja", "est": "Cerrado", "asg": "Martín", "fa": "2026-06-07", "fc": "2026-06-08", "tpr": 9, "tr": 19.0, "esc": "No", "sat": 4.0}, {"id": "TKT-057", "cli": "Quinto", "cat": "Bug", "tb": "Error de mapeo de cuentas", "pri": "Alta", "est": "En progreso", "asg": "Lucía", "fa": "2026-06-09", "fc": null, "tpr": 5, "tr": null, "esc": "Sí", "sat": null}, {"id": "TKT-058", "cli": "PPI", "cat": "Accesos", "tb": null, "pri": "Media", "est": "Cerrado", "asg": "Martín", "fa": "2026-06-10", "fc": "2026-06-11", "tpr": 4, "tr": 18.0, "esc": "No", "sat": 5.0}, {"id": "TKT-059", "cli": "Cocos Capital", "cat": "Bug", "tb": "Bug de interfaz", "pri": "Alta", "est": "Abierto", "asg": "Lucía", "fa": "2026-06-11", "fc": null, "tpr": 12, "tr": null, "esc": "No", "sat": null}, {"id": "TKT-060", "cli": "IOL Invertironline", "cat": "Bug", "tb": "Error de validación de datos", "pri": "Alta", "est": "Abierto", "asg": "Martín", "fa": "2026-06-12", "fc": null, "tpr": 8, "tr": null, "esc": "Sí", "sat": null}];
+  const ASOF = new Date('2026-06-12T00:00:00'); // fecha de corte del dataset
+  const CUT  = new Date('2026-05-20T00:00:00'); // inicio del backlog abierto
+  const DAY = 86400000;
+  const MES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const pd = s => s ? new Date(s + 'T00:00:00') : null;
+  const days = (a,b) => Math.round((a-b)/DAY);
+  const fmt = (x,d) => x.toFixed(d).replace('.',',');
+  const SHORT = {'Balanz Capital':'Balanz','Cocos Capital':'Cocos','IOL Invertironline':'IOL','PPI':'PPI','Quinto':'Quinto'};
+  const sn = c => SHORT[c] || c;
+  const clean = tb => tb.replace('Error de ','');
+
+  const open = TICKETS.filter(t => t.est !== 'Cerrado');
+  const closed = TICKETS.filter(t => t.est === 'Cerrado');
+  const alerts = [];
+
+  // R1 — tickets de prioridad Alta abiertos hace demasiado
+  const UMBRAL_DIAS = 5;
+  const agedAlta = open.filter(t => t.pri === 'Alta')
+    .map(t => ({ id:t.id, d:days(ASOF, pd(t.fa)) }))
+    .filter(t => t.d >= UMBRAL_DIAS)
+    .sort((a,b) => b.d - a.d);
+  if (agedAlta.length) {
+    const w = agedAlta[0];
+    alerts.push({ lvl:'crit',
+      title:`${w.id} lleva ${w.d} días abierto (prioridad Alta)`,
+      detail:`En total, ${agedAlta.length} tickets Alta superan los ${UMBRAL_DIAS} días sin cerrar: ` +
+        agedAlta.map(t => `${t.id} (${t.d}d)`).join(' · ') + '.' });
+  }
+
+  // R2/R3 — tipos de bug NUEVOS (desde el corte) según a cuántos clientes tocan
+  const bugTypes = [...new Set(TICKETS.filter(t => t.tb).map(t => t.tb))];
+  bugTypes.forEach(tb => {
+    const s = TICKETS.filter(t => t.tb === tb);
+    const first = s.map(t => pd(t.fa)).sort((a,b) => a - b)[0];
+    if (first < CUT) return; // no es nuevo, se ignora
+    const cl = [...new Set(s.map(t => t.cli))];
+    if (cl.length >= 3) { // transversal -> posible regresión de plataforma
+      alerts.push({ lvl:'crit',
+        title:`Posible regresión: "${clean(tb)}" es un bug nuevo ya en ${cl.length} clientes`,
+        detail:`No existe antes del ${first.getDate()}-${MES[first.getMonth()]}; ya afectó a ${cl.map(sn).join(', ')}. Que sea transversal a varios clientes apunta a la plataforma compartida.` });
+    } else if (cl.length === 1 && s.length >= 3) { // concentrado en un cliente
+      alerts.push({ lvl:'warn',
+        title:`"${clean(tb)}": ${s.length} tickets, todos de ${sn(cl[0])}`,
+        detail:`Tipo nuevo desde el 20-may y concentrado en un solo cliente → conviene revisar la integración de ${sn(cl[0])}, no solo la plataforma.` });
+    }
+  });
+
+  // R4 — clientes por debajo del piso de satisfacción
+  const PISO_SAT = 3.0;
+  [...new Set(TICKETS.map(t => t.cli))].forEach(c => {
+    const ss = closed.filter(t => t.cli === c && t.sat != null).map(t => t.sat);
+    if (!ss.length) return;
+    const m = ss.reduce((a,b) => a+b, 0) / ss.length;
+    if (m < PISO_SAT) {
+      alerts.push({ lvl:'warn',
+        title:`${sn(c)} por debajo del umbral de satisfacción`,
+        detail:`Satisfacción promedio ${fmt(m,2)} (umbral ${fmt(PISO_SAT,1)}). Es el cliente más golpeado por los bugs.` });
+    }
+  });
+
+  // R5 — salto en la composición del intake (bugs del mes en curso vs. previos)
+  const SALTO = 1.4;
+  const mk = d => { const x = pd(d); return x.getFullYear()*12 + x.getMonth(); };
+  const byMonth = {};
+  TICKETS.forEach(t => { const k = mk(t.fa); (byMonth[k] = byMonth[k] || []).push(t); });
+  const months = Object.keys(byMonth).map(Number).sort((a,b) => a-b);
+  const share = arr => arr.filter(t => t.cat === 'Bug').length / arr.length * 100;
+  if (months.length >= 2) {
+    const curShare = share(byMonth[months[months.length-1]]);
+    const prevShare = share(months.slice(0,-1).flatMap(k => byMonth[k]));
+    if (curShare > prevShare * SALTO) {
+      alerts.push({ lvl:'warn',
+        title:`El mes en curso: ${Math.round(curShare)}% de los tickets nuevos son bugs`,
+        detail:`Contra ~${Math.round(prevShare)}% en los meses previos. La composición del intake se está deteriorando (mes parcial, datos hasta el 12).` });
+    }
+  }
+
+  // R6 — cuello del escalado (informativo)
+  const bugs = TICKETS.filter(t => t.cat === 'Bug');
+  const escRate = bugs.filter(t => t.esc === 'Sí').length / bugs.length * 100;
+  const bugsC = closed.filter(t => t.cat === 'Bug');
+  const meanTR = arr => arr.reduce((a,b) => a+b.tr, 0) / arr.length;
+  const inTeam = meanTR(bugsC.filter(t => t.esc === 'No'));
+  const escd = meanTR(bugsC.filter(t => t.esc === 'Sí'));
+  alerts.push({ lvl:'info',
+    title:`El ${Math.round(escRate)}% de los bugs requiere escalado`,
+    detail:`Escalar ~duplica el tiempo de ciclo (${Math.round(inTeam)}h → ${Math.round(escd)}h). El tiempo de vuelta del escalado hoy no se mide.` });
+
+  // render
+  const order = { crit:0, warn:1, info:2 };
+  alerts.sort((a,b) => order[a.lvl] - order[b.lvl]);
+  const n = l => alerts.filter(a => a.lvl === l).length;
+  document.getElementById('alertcount').textContent =
+    `${n('crit')} críticas · ${n('warn')} de atención · ${n('info')} info`;
+  const BADGE = { crit:['badge-crit','crítica'], warn:['badge-warn','atención'], info:['badge-info','info'] };
+  document.getElementById('alertlist').innerHTML = alerts.map(a => {
+    const [cls,lbl] = BADGE[a.lvl];
+    return `<div class="alert-item"><span class="alert-badge ${cls}">${lbl}</span>` +
+           `<div class="alert-body"><p class="a-title">${a.title}</p><p class="a-detail">${a.detail}</p></div></div>`;
+  }).join('');
+})();
+</script>
+
 </body>
 </html>
